@@ -238,6 +238,67 @@ curl "http://localhost:3001/api/top-card"
 
 ---
 
+### 6. Get Category Pie Chart Data
+
+**Endpoint:** `GET /api/pie-chart`
+
+**Description:** Returns category spending data formatted specifically for pie chart visualization
+
+**Query Parameters:**
+- `limit` (optional): Number of top categories to show (default: 8, rest grouped as "Other")
+- `merchantId` (optional): Filter to specific merchant
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "name": "Other",
+      "value": 178640.41,
+      "percentage": 31.54,
+      "itemCount": 7672,
+      "averagePrice": 23.28,
+      "color": "#6b7280"
+    },
+    {
+      "name": "Electronics", 
+      "value": 127639.87,
+      "percentage": 22.54,
+      "itemCount": 2282,
+      "averagePrice": 55.93,
+      "color": "#3b82f6"
+    }
+  ],
+  "total": 566323.86,
+  "totalItems": 18624,
+  "metadata": {
+    "merchantId": "all",
+    "topN": 8,
+    "totalCategories": 10
+  }
+}
+```
+
+**Examples:**
+```bash
+# Category pie chart (all merchants)
+curl "http://localhost:3001/api/pie-chart"
+
+# Top 5 categories only
+curl "http://localhost:3001/api/pie-chart?limit=5"
+
+# Categories for specific merchant (Amazon)
+curl "http://localhost:3001/api/pie-chart?merchantId=44"
+```
+
+**Features:**
+- Pre-calculated percentages for easy pie chart rendering
+- Consistent color scheme for categories
+- Automatic grouping of smaller categories as "Other"
+- Ready for Chart.js, D3, or any pie chart library
+
+---
+
 ## Product Categories
 
 The system categorizes products into these categories:

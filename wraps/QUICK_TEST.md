@@ -15,10 +15,13 @@ curl "http://localhost:3001/api/spending?merchantId=44"
 # 4. Test top spending card
 curl "http://localhost:3001/api/top-card"
 
-# 5. Test categorization stats
+# 5. Test pie chart data (categories)
+curl "http://localhost:3001/api/pie-chart"
+
+# 6. Test categorization stats
 curl "http://localhost:3001/api/categorize"
 
-# 6. Test with pretty JSON formatting
+# 7. Test with pretty JSON formatting
 curl -s "http://localhost:3001/api/spending" | jq '.topCategories[0:3]'
 ```
 
