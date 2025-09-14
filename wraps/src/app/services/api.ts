@@ -86,13 +86,22 @@ export interface PieChartResponse {
 export class SpendingAPI {
   static async getSpendingData(): Promise<SpendingData> {
     try {
+      console.log('API Service - getSpendingData - Making request to:', `${API_BASE_URL}/api/spending`);
       const response = await fetch(`${API_BASE_URL}/api/spending`);
+      console.log('API Service - getSpendingData - Response status:', response.status);
+      console.log('API Service - getSpendingData - Response ok:', response.ok);
+      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('API Service - getSpendingData - Error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
-      return await response.json();
+      
+      const data = await response.json();
+      console.log('API Service - getSpendingData - Response data:', data);
+      return data;
     } catch (error) {
-      console.error('Error fetching spending data:', error);
+      console.error('API Service - getSpendingData - Error:', error);
       throw error;
     }
   }

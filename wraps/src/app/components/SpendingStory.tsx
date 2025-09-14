@@ -82,17 +82,29 @@ export default function SpendingStory({ onComplete }: StoryProps) {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log('=== SPENDING STORY - FETCHING DATA ===');
         const data = await SpendingAPI.getSpendingData();
+        console.log('SpendingStory - Data received:', data);
+        console.log('SpendingStory - Total spent:', data.totalSpent);
+        console.log('SpendingStory - Top categories:', data.topCategories);
+        console.log('SpendingStory - Merchant summaries:', data.merchantSummaries);
+        
         setSpendingData(data);
         const generatedStories = await generateStoriesFromData(data);
+        console.log('SpendingStory - Generated stories:', generatedStories);
         setStories(generatedStories);
         setIsLoading(false);
+        console.log('=== SPENDING STORY - USING API DATA ===');
       } catch (error) {
+        console.error('=== SPENDING STORY - API CALL FAILED ===');
         console.error('Error fetching spending data:', error);
+        console.error('Error details:', error);
         // Fallback to sample data
         const fallbackStories = generateFallbackStories();
+        console.log('SpendingStory - Using fallback stories:', fallbackStories);
         setStories(fallbackStories);
         setIsLoading(false);
+        console.log('=== SPENDING STORY - USING FALLBACK DATA ===');
       }
     };
 
