@@ -195,6 +195,49 @@ curl "http://localhost:3001/api/categorize"
 
 ---
 
+### 5. Get Top Spending Card
+
+**Endpoint:** `GET /api/top-card`
+
+**Description:** Returns detailed information about the card with the highest spending
+
+**Response:**
+```json
+{
+  "topSpendingCard": {
+    "brand": "VISA",
+    "lastFour": "4404",
+    "totalSpent": 217862.62,
+    "transactionCount": 534,
+    "averageTransactionAmount": 407.98,
+    "spendingPercentage": 38.5,
+    "topMerchant": {
+      "merchantName": "Amazon",
+      "spentAtMerchant": 62129.77,
+      "transactionsAtMerchant": 100
+    }
+  },
+  "allCardsTotal": 566323.86,
+  "cardCount": 336,
+  "comparison": {
+    "secondHighest": {
+      "brand": "EBTSNAP",
+      "totalSpent": 9871.72,
+      "transactionCount": 10,
+      "lastFour": "2467"
+    },
+    "difference": 207990.90
+  }
+}
+```
+
+**Example:**
+```bash
+curl "http://localhost:3001/api/top-card"
+```
+
+---
+
 ## Product Categories
 
 The system categorizes products into these categories:

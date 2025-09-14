@@ -54,13 +54,15 @@ export class SpendingSummarizer {
     transactions.forEach(transaction => {
       // Process payment methods
       transaction.paymentMethods.forEach(payment => {
-        const key = `${payment.brand}-${payment.lastFour}`;
-        const amount = parseFloat(payment.transactionAmount);
-        const existing = paymentMap.get(key) || { totalSpent: 0, count: 0, lastFour: payment.lastFour };
+        const brand = payment.brand || 'Unknown';
+        const lastFour = payment.lastFour || 'Unknown';
+        const key = `${brand}-${lastFour}`;
+        const amount = parseFloat(payment.transactionAmount) || 0;
+        const existing = paymentMap.get(key) || { totalSpent: 0, count: 0, lastFour };
         paymentMap.set(key, {
           totalSpent: existing.totalSpent + amount,
           count: existing.count + 1,
-          lastFour: payment.lastFour
+          lastFour
         });
       });
 
@@ -158,7 +160,7 @@ export class SpendingSummarizer {
 
     // Convert payment map to PaymentMethodBreakdown
     const paymentMethodBreakdown: PaymentMethodBreakdown[] = Array.from(paymentMap.entries()).map(([key, data]) => {
-      const brand = key.split('-')[0];
+      const brand = key.split('-')[0] || 'Unknown';
       return {
         brand,
         totalSpent: data.totalSpent,
@@ -352,6 +354,66 @@ export class SpendingSummarizer {
       topCategories,
       monthlyTrends,
       paymentMethodSummary
+    };
+  }
+
+  getTopMerchants(
+    summary: any, 
+    orderBy: 'averageSpend' | 'totalSpend' = 'averageSpend', 
+    limit: number = 5
+  ) {
+    // Calculate average spend per transaction for each merchant
+    const merchantsWithAverage = summary.merchantSummaries.map((merchant: any) => {
+      const averageSpend = merchant.transactionCount > 0 
+        ? merchant.totalSpent / merchant.transactionCount 
+        : 0;
+
+      return {
+        merchantName: merchant.merchantName,
+        merchantId: merchant.merchantId,
+        totalSpent: merchant.totalSpent,
+        transactionCount: merchant.transactionCount,
+        averageSpend: Math.round(averageSpend * 100) / 100,
+        topCategory: merchant.categoryBreakdown.length > 0 
+          ? merchant.categoryBreakdown[0].category 
+          : 'Unknown',
+        topCategorySpent: merchant.categoryBreakdown.length > 0 
+          ? merchant.categoryBreakdown[0].totalSpent 
+          : 0
+      };
+    });
+
+    // Sort based on the orderBy parameter
+    const sortedMerchants = orderBy === 'totalSpend'
+      ? merchantsWithAverage.sort((a: any, b: any) => b.totalSpent - a.totalSpent)
+      : merchantsWithAverage.sort((a: any, b: any) => b.averageSpend - a.averageSpend);
+
+    // Get top N merchants
+    const topMerchants = sortedMerchants.slice(0, limit);
+
+    // Calculate overall stats
+    const totalMerchants = merchantsWithAverage.length;
+    const overallAverageSpend = summary.totalSpent / summary.totalTransactions;
+    const aboveAverage = merchantsWithAverage.filter((m: any) => m.averageSpend > overallAverageSpend).length;
+    const belowAverage = totalMerchants - aboveAverage;
+
+    return {
+      topMerchants,
+      metadata: {
+        orderBy,
+        limit,
+        totalMerchants,
+        overallAverageSpend: Math.round(overallAverageSpend * 100) / 100,
+        merchantsAboveAverage: aboveAverage,
+        merchantsBelowAverage: belowAverage
+      },
+      insights: {
+        highestAverageSpend: topMerchants[0]?.averageSpend || 0,
+        lowestAverageSpend: topMerchants[topMerchants.length - 1]?.averageSpend || 0,
+        averageSpendRange: topMerchants.length > 1 
+          ? (topMerchants[0]?.averageSpend || 0) - (topMerchants[topMerchants.length - 1]?.averageSpend || 0)
+          : 0
+      }
     };
   }
 }

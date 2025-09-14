@@ -12,10 +12,13 @@ curl "http://localhost:3001/api/spending"
 # 3. Test spending summary (specific merchant - Amazon)
 curl "http://localhost:3001/api/spending?merchantId=44"
 
-# 4. Test categorization stats
+# 4. Test top spending card
+curl "http://localhost:3001/api/top-card"
+
+# 5. Test categorization stats
 curl "http://localhost:3001/api/categorize"
 
-# 5. Test with pretty JSON formatting
+# 6. Test with pretty JSON formatting
 curl -s "http://localhost:3001/api/spending" | jq '.topCategories[0:3]'
 ```
 
