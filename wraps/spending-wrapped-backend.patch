@@ -1,0 +1,537 @@
+From 35c6b8e30423b3182365cc0a5643440e2686ab72 Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Sun, 14 Sep 2025 03:00:07 +0000
+Subject: [PATCH] Add spending analysis backend with Knot API integration
+
+- Create TypeScript interfaces for Knot API response structure
+- Implement spending categorization logic with keyword matching
+- Add utility functions for calculating spending by category and top companies
+- Integrate Anthropic API for AI-generated spending recommendations
+- Create Next.js API route for spending analysis endpoint
+- Add comprehensive error handling and data validation
+- Configure TypeScript paths for proper module resolution
+
+Features:
+- Pie chart data with spending categories and percentages
+- Top 5 companies by spending amount and transaction count
+- AI-powered spending reduction recommendations
+- Proper data processing and aggregation from Knot API
+
+Co-Authored-By: Henri Yan <henriyan28@gmail.com>
+---
+ wraps/package-lock.json                      |  10 ++
+ wraps/package.json                           |  13 +-
+ wraps/src/app/api/spending-analysis/route.ts |  70 ++++++++++
+ wraps/src/types/knot.ts                      |  83 ++++++++++++
+ wraps/src/utils/anthropic-api.ts             |  82 ++++++++++++
+ wraps/src/utils/knot-api.ts                  |  35 +++++
+ wraps/src/utils/spending-analyzer.ts         | 127 +++++++++++++++++++
+ wraps/tsconfig.json                          |   1 +
+ 8 files changed, 415 insertions(+), 6 deletions(-)
+ create mode 100644 wraps/src/app/api/spending-analysis/route.ts
+ create mode 100644 wraps/src/types/knot.ts
+ create mode 100644 wraps/src/utils/anthropic-api.ts
+ create mode 100644 wraps/src/utils/knot-api.ts
+ create mode 100644 wraps/src/utils/spending-analyzer.ts
+
+diff --git a/wraps/package-lock.json b/wraps/package-lock.json
+index e0b6dde..d950d06 100644
+--- a/wraps/package-lock.json
++++ b/wraps/package-lock.json
+@@ -8,6 +8,7 @@
+       "name": "wraps",
+       "version": "0.1.0",
+       "dependencies": {
++        "@anthropic-ai/sdk": "^0.62.0",
+         "next": "15.5.3",
+         "react": "19.1.0",
+         "react-dom": "19.1.0"
+@@ -37,6 +38,15 @@
+         "url": "https://github.com/sponsors/sindresorhus"
+       }
+     },
++    "node_modules/@anthropic-ai/sdk": {
++      "version": "0.62.0",
++      "resolved": "https://registry.npmjs.org/@anthropic-ai/sdk/-/sdk-0.62.0.tgz",
++      "integrity": "sha512-gT2VFKX0gSp7KJNlav/vzRFjJOPYDZxCJRx7MYUc+fqURc5aS6OI/UJeD2KytJkjsIWv0OOwH1ePc1S5QE2GZw==",
++      "license": "MIT",
++      "bin": {
++        "anthropic-ai-sdk": "bin/cli"
++      }
++    },
+     "node_modules/@emnapi/core": {
+       "version": "1.5.0",
+       "resolved": "https://registry.npmjs.org/@emnapi/core/-/core-1.5.0.tgz",
+diff --git a/wraps/package.json b/wraps/package.json
+index 3345b0d..dc7b830 100644
+--- a/wraps/package.json
++++ b/wraps/package.json
+@@ -9,19 +9,20 @@
+     "lint": "eslint"
+   },
+   "dependencies": {
++    "@anthropic-ai/sdk": "^0.62.0",
++    "next": "15.5.3",
+     "react": "19.1.0",
+-    "react-dom": "19.1.0",
+-    "next": "15.5.3"
++    "react-dom": "19.1.0"
+   },
+   "devDependencies": {
+-    "typescript": "^5",
++    "@eslint/eslintrc": "^3",
++    "@tailwindcss/postcss": "^4",
+     "@types/node": "^20",
+     "@types/react": "^19",
+     "@types/react-dom": "^19",
+-    "@tailwindcss/postcss": "^4",
+-    "tailwindcss": "^4",
+     "eslint": "^9",
+     "eslint-config-next": "15.5.3",
+-    "@eslint/eslintrc": "^3"
++    "tailwindcss": "^4",
++    "typescript": "^5"
+   }
+ }
+diff --git a/wraps/src/app/api/spending-analysis/route.ts b/wraps/src/app/api/spending-analysis/route.ts
+new file mode 100644
+index 0000000..8a07acc
+--- /dev/null
++++ b/wraps/src/app/api/spending-analysis/route.ts
+@@ -0,0 +1,70 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { fetchTransactionData } from '@/utils/knot-api';
++import { 
++  calculateSpendingByCategory, 
++  calculateTopCompanies, 
++  calculateTotalSpent,
++  getTransactionCount 
++} from '@/utils/spending-analyzer';
++import { generateSpendingRecommendations } from '@/utils/anthropic-api';
++import { SpendingAnalysisResponse } from '@/types/knot';
++
++export async function POST(request: NextRequest) {
++  try {
++    const body = await request.json();
++    const { merchant_id, external_user_id, limit = 50 } = body;
++
++    if (!merchant_id || !external_user_id) {
++      return NextResponse.json(
++        { error: 'merchant_id and external_user_id are required' },
++        { status: 400 }
++      );
++    }
++
++    const knotData = await fetchTransactionData(merchant_id, external_user_id, limit);
++    
++    if (!knotData.transactions || knotData.transactions.length === 0) {
++      return NextResponse.json(
++        { error: 'No transaction data found' },
++        { status: 404 }
++      );
++    }
++
++    const categories = calculateSpendingByCategory(knotData.transactions);
++    const topCompanies = calculateTopCompanies(knotData.transactions, knotData.merchant.name);
++    const totalSpent = calculateTotalSpent(knotData.transactions);
++    const transactionCount = getTransactionCount(knotData.transactions);
++
++    const recommendations = await generateSpendingRecommendations(
++      categories,
++      topCompanies,
++      totalSpent
++    );
++
++    const response: SpendingAnalysisResponse = {
++      categories,
++      topCompanies,
++      recommendations,
++      totalSpent,
++      transactionCount
++    };
++
++    return NextResponse.json(response);
++  } catch (error) {
++    console.error('Error in spending analysis API:', error);
++    return NextResponse.json(
++      { error: 'Internal server error' },
++      { status: 500 }
++    );
++  }
++}
++
++export async function GET() {
++  return NextResponse.json(
++    { 
++      message: 'Spending Analysis API',
++      usage: 'POST with merchant_id, external_user_id, and optional limit'
++    },
++    { status: 200 }
++  );
++}
+diff --git a/wraps/src/types/knot.ts b/wraps/src/types/knot.ts
+new file mode 100644
+index 0000000..b048535
+--- /dev/null
++++ b/wraps/src/types/knot.ts
+@@ -0,0 +1,83 @@
++export interface KnotTransaction {
++  id: string;
++  external_id: string;
++  datetime: string;
++  url: string;
++  order_status: string;
++  payment_methods: PaymentMethod[];
++  price: Price;
++  products: Product[];
++}
++
++export interface PaymentMethod {
++  external_id: string;
++  type: string;
++  brand: string;
++  last_four: string;
++  transaction_amount: string;
++}
++
++export interface Price {
++  sub_total: string;
++  adjustments: Adjustment[];
++  total: string;
++  currency: string;
++}
++
++export interface Adjustment {
++  type: string;
++  label: string;
++  amount: string;
++}
++
++export interface Product {
++  external_id: string;
++  name: string;
++  url: string;
++  quantity: number;
++  price: ProductPrice;
++  eligibility: string[];
++}
++
++export interface ProductPrice {
++  sub_total: string;
++  total: string;
++  unit_price: string;
++}
++
++export interface KnotApiResponse {
++  merchant: {
++    id: number;
++    name: string;
++  };
++  transactions: KnotTransaction[];
++  next_cursor?: string;
++  limit: number;
++}
++
++export interface SpendingCategory {
++  name: string;
++  amount: number;
++  percentage: number;
++}
++
++export interface TopCompany {
++  name: string;
++  amount: number;
++  transactionCount: number;
++}
++
++export interface SpendingRecommendations {
++  summary: string;
++  topCutArea: string;
++  potentialSavings: number;
++  suggestions: string[];
++}
++
++export interface SpendingAnalysisResponse {
++  categories: SpendingCategory[];
++  topCompanies: TopCompany[];
++  recommendations: SpendingRecommendations;
++  totalSpent: number;
++  transactionCount: number;
++}
+diff --git a/wraps/src/utils/anthropic-api.ts b/wraps/src/utils/anthropic-api.ts
+new file mode 100644
+index 0000000..9903e6d
+--- /dev/null
++++ b/wraps/src/utils/anthropic-api.ts
+@@ -0,0 +1,82 @@
++import Anthropic from '@anthropic-ai/sdk';
++import { SpendingCategory, TopCompany, SpendingRecommendations } from '@/types/knot';
++
++const anthropic = new Anthropic({
++  apiKey: process.env.ANTHROPIC_API_KEY,
++});
++
++export async function generateSpendingRecommendations(
++  categories: SpendingCategory[],
++  topCompanies: TopCompany[],
++  totalSpent: number
++): Promise<SpendingRecommendations> {
++  const prompt = `
++Analyze the following spending data and provide personalized recommendations for reducing expenses:
++
++Total Spent: $${totalSpent}
++
++Spending by Category:
++${categories.map(cat => `- ${cat.name}: $${cat.amount} (${cat.percentage}%)`).join('\n')}
++
++Top Companies by Spending:
++${topCompanies.map(company => `- ${company.name}: $${company.amount} (${company.transactionCount} transactions)`).join('\n')}
++
++Please provide:
++1. A brief summary of spending patterns (2-3 sentences)
++2. The top category where spending could be reduced
++3. Estimated potential monthly savings amount
++4. 3-4 specific, actionable suggestions for reducing spending
++
++Format your response as JSON with the following structure:
++{
++  "summary": "Brief analysis of spending patterns",
++  "topCutArea": "Category name with highest reduction potential",
++  "potentialSavings": estimated_monthly_savings_number,
++  "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3", "suggestion 4"]
++}
++`;
++
++  try {
++    const response = await anthropic.messages.create({
++      model: 'claude-3-haiku-20240307',
++      max_tokens: 1000,
++      messages: [
++        {
++          role: 'user',
++          content: prompt,
++        },
++      ],
++    });
++
++    const content = response.content[0];
++    if (content.type !== 'text') {
++      throw new Error('Unexpected response type from Anthropic API');
++    }
++
++    const recommendations = JSON.parse(content.text) as SpendingRecommendations;
++    
++    return {
++      summary: recommendations.summary,
++      topCutArea: recommendations.topCutArea,
++      potentialSavings: Math.round(recommendations.potentialSavings * 100) / 100,
++      suggestions: recommendations.suggestions
++    };
++  } catch (error) {
++    console.error('Error generating spending recommendations:', error);
++    
++    const fallbackCategory = categories.length > 0 ? categories[0].name : 'General';
++    const fallbackSavings = Math.round(totalSpent * 0.1);
++    
++    return {
++      summary: `Your spending analysis shows $${totalSpent} in total expenses. Consider reviewing your ${fallbackCategory} purchases for potential savings.`,
++      topCutArea: fallbackCategory,
++      potentialSavings: fallbackSavings,
++      suggestions: [
++        'Review subscription services and cancel unused ones',
++        'Compare prices before making purchases',
++        'Set a monthly budget for discretionary spending',
++        'Look for discounts and promotional offers'
++      ]
++    };
++  }
++}
+diff --git a/wraps/src/utils/knot-api.ts b/wraps/src/utils/knot-api.ts
+new file mode 100644
+index 0000000..eede23b
+--- /dev/null
++++ b/wraps/src/utils/knot-api.ts
+@@ -0,0 +1,35 @@
++import { KnotApiResponse } from '@/types/knot';
++
++export async function fetchTransactionData(
++  merchantId: number,
++  externalUserId: string,
++  limit: number = 50
++): Promise<KnotApiResponse> {
++  const knotApiUrl = process.env.KNOT_API_URL || 'https://knot.tunnel.tel/transactions/sync';
++  
++  const requestBody = {
++    merchant_id: merchantId,
++    external_user_id: externalUserId,
++    limit: limit
++  };
++
++  try {
++    const response = await fetch(knotApiUrl, {
++      method: 'POST',
++      headers: {
++        'Content-Type': 'application/json',
++      },
++      body: JSON.stringify(requestBody),
++    });
++
++    if (!response.ok) {
++      throw new Error(`Knot API request failed: ${response.status} ${response.statusText}`);
++    }
++
++    const data: KnotApiResponse = await response.json();
++    return data;
++  } catch (error) {
++    console.error('Error fetching transaction data from Knot API:', error);
++    throw new Error('Failed to fetch transaction data');
++  }
++}
+diff --git a/wraps/src/utils/spending-analyzer.ts b/wraps/src/utils/spending-analyzer.ts
+new file mode 100644
+index 0000000..37bf2e2
+--- /dev/null
++++ b/wraps/src/utils/spending-analyzer.ts
+@@ -0,0 +1,127 @@
++import { KnotTransaction, Product, SpendingCategory, TopCompany } from '@/types/knot';
++
++const CATEGORY_KEYWORDS = {
++  'Electronics': [
++    'phone', 'computer', 'laptop', 'tablet', 'camera', 'headphones', 'speaker', 'tv', 'monitor',
++    'gaming', 'gpu', 'rtx', 'xbox', 'playstation', 'nintendo', 'webcam', 'microsd', 'usb',
++    'bluetooth', 'wifi', 'smart', 'alexa', 'echo', 'ring', 'doorbell', 'wemo', 'plug'
++  ],
++  'Home & Garden': [
++    'furniture', 'chair', 'table', 'bed', 'sofa', 'lamp', 'kitchen', 'cookware', 'blender',
++    'pressure cooker', 'instant pot', 'vacuum', 'cleaning', 'garden', 'plant', 'tool',
++    'home improvement', 'appliance', 'microwave', 'refrigerator'
++  ],
++  'Health & Beauty': [
++    'vitamin', 'supplement', 'skincare', 'moisturizer', 'sunscreen', 'cosmetics', 'makeup',
++    'mascara', 'lotion', 'shampoo', 'conditioner', 'dental', 'toothbrush', 'health',
++    'medicine', 'thermometer', 'eye drops', 'lip balm'
++  ],
++  'Clothing & Accessories': [
++    'shirt', 'pants', 'dress', 'shoes', 'socks', 'underwear', 'jacket', 'coat', 'hat',
++    'sunglasses', 'watch', 'jewelry', 'bag', 'wallet', 'belt', 'nike', 'adidas',
++    'clothing', 'apparel', 'fashion', 'ray-ban'
++  ],
++  'Food & Beverages': [
++    'food', 'snack', 'drink', 'coffee', 'tea', 'water', 'juice', 'soda', 'beer', 'wine',
++    'restaurant', 'grocery', 'organic', 'protein', 'nuts', 'almonds', 'essentia'
++  ],
++  'Sports & Outdoors': [
++    'sports', 'fitness', 'exercise', 'gym', 'outdoor', 'camping', 'hiking', 'running',
++    'cycling', 'swimming', 'yoga', 'equipment', 'gear', 'athletic'
++  ],
++  'Books & Media': [
++    'book', 'ebook', 'audiobook', 'magazine', 'newspaper', 'music', 'movie', 'dvd',
++    'blu-ray', 'streaming', 'subscription'
++  ],
++  'Pet Supplies': [
++    'pet', 'dog', 'cat', 'bird', 'fish', 'animal', 'pet food', 'toy', 'leash', 'collar',
++    'cage', 'aquarium', 'furbo'
++  ],
++  'Office & School': [
++    'office', 'desk', 'chair', 'pen', 'pencil', 'paper', 'notebook', 'binder', 'stapler',
++    'printer', 'ink', 'school', 'education', 'label maker', 'dymo'
++  ],
++  'Travel & Luggage': [
++    'luggage', 'suitcase', 'backpack', 'travel', 'vacation', 'hotel', 'flight', 'car rental',
++    'passport', 'map'
++  ]
++};
++
++export function categorizeProduct(product: Product): string {
++  const productName = product.name.toLowerCase();
++  
++  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
++    for (const keyword of keywords) {
++      if (productName.includes(keyword.toLowerCase())) {
++        return category;
++      }
++    }
++  }
++  
++  return 'Other';
++}
++
++export function calculateSpendingByCategory(transactions: KnotTransaction[]): SpendingCategory[] {
++  const categoryTotals: { [key: string]: number } = {};
++  let totalSpent = 0;
++
++  transactions.forEach(transaction => {
++    transaction.products.forEach(product => {
++      const category = categorizeProduct(product);
++      const amount = parseFloat(product.price.total);
++      
++      if (!categoryTotals[category]) {
++        categoryTotals[category] = 0;
++      }
++      categoryTotals[category] += amount;
++      totalSpent += amount;
++    });
++  });
++
++  const categories: SpendingCategory[] = Object.entries(categoryTotals)
++    .map(([name, amount]) => ({
++      name,
++      amount: Math.round(amount * 100) / 100,
++      percentage: Math.round((amount / totalSpent) * 100 * 100) / 100
++    }))
++    .sort((a, b) => b.amount - a.amount);
++
++  return categories;
++}
++
++export function calculateTopCompanies(transactions: KnotTransaction[], merchantName: string): TopCompany[] {
++  const companyTotals: { [key: string]: { amount: number; count: number } } = {};
++
++  transactions.forEach(transaction => {
++    const totalAmount = parseFloat(transaction.price.total);
++    
++    if (!companyTotals[merchantName]) {
++      companyTotals[merchantName] = { amount: 0, count: 0 };
++    }
++    companyTotals[merchantName].amount += totalAmount;
++    companyTotals[merchantName].count += 1;
++  });
++
++  const topCompanies: TopCompany[] = Object.entries(companyTotals)
++    .map(([name, data]) => ({
++      name,
++      amount: Math.round(data.amount * 100) / 100,
++      transactionCount: data.count
++    }))
++    .sort((a, b) => b.amount - a.amount)
++    .slice(0, 5);
++
++  return topCompanies;
++}
++
++export function calculateTotalSpent(transactions: KnotTransaction[]): number {
++  const total = transactions.reduce((sum, transaction) => {
++    return sum + parseFloat(transaction.price.total);
++  }, 0);
++  
++  return Math.round(total * 100) / 100;
++}
++
++export function getTransactionCount(transactions: KnotTransaction[]): number {
++  return transactions.length;
++}
+diff --git a/wraps/tsconfig.json b/wraps/tsconfig.json
+index c133409..2ff581a 100644
+--- a/wraps/tsconfig.json
++++ b/wraps/tsconfig.json
+@@ -18,6 +18,7 @@
+         "name": "next"
+       }
+     ],
++    "baseUrl": ".",
+     "paths": {
+       "@/*": ["./src/*"]
+     }
+-- 
+2.34.1
+
