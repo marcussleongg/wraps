@@ -54,8 +54,11 @@ export default function PieChart({ onClose, spendingData }: PieChartProps) {
         console.error('=== API CALL FAILED ===');
         console.error('Error fetching pie chart data from API:', err);
         console.error('Error details:', err);
-        console.error('Error stack:', err.stack);
-        setError(`Failed to load chart data: ${err.message || 'Unknown error'}`);
+        
+        // Type-safe error handling
+        const error = err instanceof Error ? err : new Error(String(err));
+        console.error('Error stack:', error.stack);
+        setError(`Failed to load chart data: ${error.message || 'Unknown error'}`);
         setIsLoading(false);
       }
     };
