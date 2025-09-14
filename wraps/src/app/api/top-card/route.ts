@@ -52,16 +52,23 @@ export async function GET() {
       }
     }
 
+    // Build the response object conditionally
+    const topSpendingCardResponse: any = {
+      lastFour: topCard.lastFour,
+      totalSpent: topCard.totalSpent,
+      transactionCount: topCard.transactionCount,
+      averageTransactionAmount,
+      spendingPercentage: parseFloat(spendingPercentage),
+      topMerchant: topMerchantForCard
+    };
+
+    // Only include brand if it's not "Unknown" or undefined
+    if (topCard.brand && topCard.brand !== 'Unknown') {
+      topSpendingCardResponse.brand = topCard.brand;
+    }
+
     return NextResponse.json({
-      topSpendingCard: {
-        brand: topCard.brand,
-        lastFour: topCard.lastFour,
-        totalSpent: topCard.totalSpent,
-        transactionCount: topCard.transactionCount,
-        averageTransactionAmount,
-        spendingPercentage: parseFloat(spendingPercentage),
-        topMerchant: topMerchantForCard
-      },
+      topSpendingCard: topSpendingCardResponse,
       allCardsTotal: totalSpentAllCards,
       cardCount: summary.paymentMethodSummary.length,
       comparison: {
