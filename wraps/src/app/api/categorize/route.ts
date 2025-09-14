@@ -6,7 +6,8 @@ import { SpendingSummarizer } from '@/lib/spendingSummarizer';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { apiKey, dryRun = true } = body;
+    const { dryRun = true } = body;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
 
     if (!apiKey) {
       return NextResponse.json(
