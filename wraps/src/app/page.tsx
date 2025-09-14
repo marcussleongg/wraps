@@ -37,7 +37,7 @@ export default function Home() {
           <span className="material-symbols-outlined text-3xl text-[var(--primary-color)]">
             insights
           </span>
-          <h1 className="text-white text-xl font-bold">Knots</h1>
+          <h1 className="text-white text-xl font-bold">Wraps</h1>
         </div>
         <nav className="hidden md:flex items-center gap-8"></nav>
         <div className="hidden md:flex items-center gap-4"></div>

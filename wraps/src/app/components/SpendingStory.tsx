@@ -382,7 +382,7 @@ export default function SpendingStory({ onComplete }: StoryProps) {
 
   const handleShare = async () => {
     const shareData = {
-      title: 'My Spending Story - Knotted',
+      title: 'My Spending Story - Wraps',
       text: `Check out my spending insights! ${currentStoryData.category}: ${currentStoryData.amount}`,
       url: window.location.href,
     };
@@ -392,20 +392,38 @@ export default function SpendingStory({ onComplete }: StoryProps) {
       if (navigator.share && /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
         await navigator.share(shareData);
       } else {
-        // For desktop/web, always show the modal instead of trying to share
-        setShowShareModal(true);
+        // For desktop/web, copy the link to clipboard
+        await copyToClipboard(window.location.href);
       }
     } catch (err) {
       console.error('Error sharing:', err);
-      // Fallback: show modal
-      setShowShareModal(true);
+      // Fallback: copy to clipboard
+      await copyToClipboard(window.location.href);
     }
   };
 
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      alert('Copied to clipboard!');
+      // Show a more user-friendly notification
+      const notification = document.createElement('div');
+      notification.textContent = 'Link copied to clipboard!';
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #38e07b;
+        color: #122118;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      `;
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 3000);
     } catch (err) {
       console.error('Clipboard error:', err);
       // Fallback for older browsers
@@ -415,12 +433,31 @@ export default function SpendingStory({ onComplete }: StoryProps) {
       textArea.select();
       document.execCommand('copy');
       document.body.removeChild(textArea);
-      alert('Copied to clipboard!');
+      
+      // Show fallback notification
+      const notification = document.createElement('div');
+      notification.textContent = 'Link copied to clipboard!';
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #38e07b;
+        color: #122118;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      `;
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 3000);
     }
   };
 
   const shareToSocial = (platform: string) => {
-    const shareText = `Check out my spending insights! ${currentStoryData.category}: ${currentStoryData.amount}`;
+    const shareText = `Check out my spending insights from Wraps! ${currentStoryData.category}: ${currentStoryData.amount}`;
     const url = encodeURIComponent(window.location.href);
     const text = encodeURIComponent(shareText);
     
@@ -552,20 +589,21 @@ export default function SpendingStory({ onComplete }: StoryProps) {
             {currentStoryData.description}
           </p>
         </div>
-        
-        <div className="w-full flex items-center justify-center">
-          <button 
-            onClick={() => setShowShareModal(true)}
-            className="bg-white/20 backdrop-blur-sm text-white font-medium py-3 px-6 rounded-full flex items-center gap-2 hover:bg-white/30 transition-colors"
-          >
-            <span className="material-symbols-outlined">share</span>
-            Share
-          </button>
-        </div>
       </div>
 
-      {/* Navigation areas */}
-      <div className="absolute inset-0 z-10 flex">
+      {/* Share Button - layered on top */}
+      <div className="absolute bottom-6 left-0 right-0 flex justify-center z-30">
+        <button 
+          onClick={() => setShowShareModal(true)}
+          className="bg-white/20 backdrop-blur-sm text-white font-medium py-3 px-6 rounded-full flex items-center gap-2 hover:bg-white/30 transition-colors"
+        >
+          <span className="material-symbols-outlined">share</span>
+          Share
+        </button>
+      </div>
+
+      {/* Navigation areas - full screen but behind share button */}
+      <div className="absolute inset-0 z-20 flex">
         <div 
           className="flex-1 cursor-pointer"
           onClick={handlePrevious}

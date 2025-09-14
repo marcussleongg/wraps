@@ -53,7 +53,7 @@ export default function LoadingScreen() {
           </p>
           <div className="w-full max-w-md mx-auto">
             <div className="flex justify-between items-center mb-2 text-sm font-medium text-gray-400">
-              <p>Generating your Knotted...</p>
+              <p>Generating your Wraps...</p>
               <p>{progress}%</p>
             </div>
             <div className="h-2.5 w-full rounded-full bg-gray-700 overflow-hidden">
