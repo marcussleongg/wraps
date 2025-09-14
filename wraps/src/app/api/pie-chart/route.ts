@@ -10,8 +10,8 @@ export async function GET(request: Request) {
 
     const dataLoader = new DataLoader();
     const summarizer = new SpendingSummarizer({
-      useAIFallback: true,
-      apiKey: process.env.ANTHROPIC_API_KEY
+      useAIFallback: true,  // Enable to read from cache
+      apiKey: undefined     // No API key = won't trigger Claude calls
     });
 
     let data;
