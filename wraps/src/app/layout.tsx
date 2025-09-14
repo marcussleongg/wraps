@@ -15,7 +15,7 @@ const splineSans = Spline_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Stitch Design",
+  title: "Knots",
   description: "Discover your spending habits - Powered by Knot API",
 };
 

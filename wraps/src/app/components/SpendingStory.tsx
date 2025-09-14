@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { SpendingAPI, SpendingData, MerchantSummary, CategorySummary } from '../services/api';
+import PieChart from './PieChart';
 
 interface StoryProps {
   onComplete: () => void;
@@ -24,6 +25,7 @@ export default function SpendingStory({ onComplete }: StoryProps) {
   const [spendingData, setSpendingData] = useState<SpendingData | null>(null);
   const [stories, setStories] = useState<Story[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showPieChart, setShowPieChart] = useState(false);
 
   const currentStoryData = stories[currentStory];
 
@@ -331,13 +333,12 @@ export default function SpendingStory({ onComplete }: StoryProps) {
       });
     }, 100);
 
-    // Auto-advance to next story after 5 seconds
+    // Auto-advance to next story after 5 seconds (but not from the last story)
     const storyTimeout = setTimeout(() => {
       if (currentStory < stories.length - 1) {
         setCurrentStory(prev => prev + 1);
-      } else {
-        onComplete();
       }
+      // Don't auto-advance from the last story - user must manually click to see pie chart
     }, 5000);
 
     return () => {
@@ -350,7 +351,8 @@ export default function SpendingStory({ onComplete }: StoryProps) {
     if (currentStory < stories.length - 1) {
       setCurrentStory(prev => prev + 1);
     } else {
-      onComplete();
+      // Show pie chart on the last slide
+      setShowPieChart(true);
     }
   };
 
@@ -358,6 +360,12 @@ export default function SpendingStory({ onComplete }: StoryProps) {
     if (currentStory > 0) {
       setCurrentStory(prev => prev - 1);
     }
+  };
+
+  const handlePieChartClose = () => {
+    setShowPieChart(false);
+    // Go back to the last story
+    setCurrentStory(stories.length - 1);
   };
 
   const handleShare = async () => {
@@ -435,6 +443,10 @@ export default function SpendingStory({ onComplete }: StoryProps) {
         </div>
       </div>
     );
+  }
+
+  if (showPieChart && spendingData) {
+    return <PieChart onClose={handlePieChartClose} spendingData={spendingData} />;
   }
 
   // Show error state if no stories available

@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3001';
+const API_BASE_URL = '';
 
 export interface SpendingData {
   totalSpent: number;
@@ -63,6 +63,26 @@ export interface MonthlySpending {
   transactionCount: number;
 }
 
+export interface PieChartData {
+  name: string;
+  value: number;
+  percentage: number;
+  itemCount: number;
+  averagePrice: number;
+  color: string;
+}
+
+export interface PieChartResponse {
+  data: PieChartData[];
+  total: number;
+  totalItems: number;
+  metadata: {
+    merchantId: string;
+    topN: number;
+    totalCategories: number;
+  };
+}
+
 export class SpendingAPI {
   static async getSpendingData(): Promise<SpendingData> {
     try {
@@ -86,6 +106,25 @@ export class SpendingAPI {
       return await response.json();
     } catch (error) {
       console.error('Error fetching merchants:', error);
+      throw error;
+    }
+  }
+
+  static async getPieChartData(limit?: number, merchantId?: number): Promise<PieChartResponse> {
+    try {
+      const params = new URLSearchParams();
+      if (limit) params.append('limit', limit.toString());
+      if (merchantId) params.append('merchantId', merchantId.toString());
+      
+      const url = `${API_BASE_URL}/api/pie-chart${params.toString() ? '?' + params.toString() : ''}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching pie chart data:', error);
       throw error;
     }
   }
