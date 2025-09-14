@@ -1,68 +1,322 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { SpendingAPI, SpendingData, MerchantSummary, CategorySummary } from '../services/api';
 
 interface StoryProps {
   onComplete: () => void;
+}
+
+interface Story {
+  id: number;
+  title: string;
+  category: string;
+  amount: string;
+  description: string;
+  backgroundImage: string;
+  gradient: string;
 }
 
 export default function SpendingStory({ onComplete }: StoryProps) {
   const [currentStory, setCurrentStory] = useState(0);
   const [progress, setProgress] = useState(0);
   const [showShareModal, setShowShareModal] = useState(false);
-  
-  // Sample spending data for different stories
-  const stories = [
-    {
-      id: 1,
-      title: "Top Spending Category",
-      category: "Shopping",
-      amount: "$2,450.78",
-      description: "You really treated yourself this year!",
-      backgroundImage: "https://lh3.googleusercontent.com/aida-public/AB6AXuBKka5wFbjiJN8alai0aLc08C-hdyKzQyVyqSyB7e5_Yge7TV6kJ8DHH59umQbHsYsun1VpEDoe0JW4lqDUWNzTR4UdPgsuO-XC9RZwjCrgia0ngmg-9x_I6tA45P0g3MoJs3zvSCGNVoznONIDmMDRkZTZVuzZKOcXv92RmYzu9aA9YQqTfShhTTIbXcXyDKdreKh17yecKGwnI8TP2GdlD1Q8sOZwH395gkThEevQWa3yqd1VhyE2O97iqoTYZeKvOIdZbDFKp0E",
-      gradient: "from-indigo-900 to-purple-900"
-    },
-    {
-      id: 2,
-      title: "Most Expensive Month",
-      category: "December",
-      amount: "$3,200.45",
-      description: "Holiday shopping got the best of you!",
-      backgroundImage: "https://lh3.googleusercontent.com/aida-public/AB6AXuBKka5wFbjiJN8alai0aLc08C-hdyKzQyVyqSyB7e5_Yge7TV6kJ8DHH59umQbHsYsun1VpEDoe0JW4lqDUWNzTR4UdPgsuO-XC9RZwjCrgia0ngmg-9x_I6tA45P0g3MoJs3zvSCGNVoznONIDmMDRkZTZVuzZKOcXv92RmYzu9aA9YQqTfShhTTIbXcXyDKdreKh17yecKGwnI8TP2GdlD1Q8sOZwH395gkThEevQWa3yqd1VhyE2O97iqoTYZeKvOIdZbDFKp0E",
-      gradient: "from-purple-900 to-pink-900"
-    },
-    {
-      id: 3,
-      title: "Favorite Store",
-      category: "Amazon",
-      amount: "$1,890.32",
-      description: "Prime delivery was your best friend!",
-      backgroundImage: "https://lh3.googleusercontent.com/aida-public/AB6AXuBKka5wFbjiJN8alai0aLc08C-hdyKzQyVyqSyB7e5_Yge7TV6kJ8DHH59umQbHsYsun1VpEDoe0JW4lqDUWNzTR4UdPgsuO-XC9RZwjCrgia0ngmg-9x_I6tA45P0g3MoJs3zvSCGNVoznONIDmMDRkZTZVuzZKOcXv92RmYzu9aA9YQqTfShhTTIbXcXyDKdreKh17yecKGwnI8TP2GdlD1Q8sOZwH395gkThEevQWa3yqd1VhyE2O97iqoTYZeKvOIdZbDFKp0E",
-      gradient: "from-pink-900 to-red-900"
-    },
-    {
-      id: 4,
-      title: "Biggest Single Purchase",
-      category: "Electronics",
-      amount: "$899.99",
-      description: "That new gadget was worth every penny!",
-      backgroundImage: "https://lh3.googleusercontent.com/aida-public/AB6AXuBKka5wFbjiJN8alai0aLc08C-hdyKzQyVyqSyB7e5_Yge7TV6kJ8DHH59umQbHsYsun1VpEDoe0JW4lqDUWNzTR4UdPgsuO-XC9RZwjCrgia0ngmg-9x_I6tA45P0g3MoJs3zvSCGNVoznONIDmMDRkZTZVuzZKOcXv92RmYzu9aA9YQqTfShhTTIbXcXyDKdreKh17yecKGwnI8TP2GdlD1Q8sOZwH395gkThEevQWa3yqd1VhyE2O97iqoTYZeKvOIdZbDFKp0E",
-      gradient: "from-red-900 to-orange-900"
-    },
-    {
-      id: 5,
-      title: "Total Year Spending",
-      category: "2024",
-      amount: "$12,450.78",
-      description: "Here's to another year of smart spending!",
-      backgroundImage: "https://lh3.googleusercontent.com/aida-public/AB6AXuBKka5wFbjiJN8alai0aLc08C-hdyKzQyVyqSyB7e5_Yge7TV6kJ8DHH59umQbHsYsun1VpEDoe0JW4lqDUWNzTR4UdPgsuO-XC9RZwjCrgia0ngmg-9x_I6tA45P0g3MoJs3zvSCGNVoznONIDmMDRkZTZVuzZKOcXv92RmYzu9aA9YQqTfShhTTIbXcXyDKdreKh17yecKGwnI8TP2GdlD1Q8sOZwH395gkThEevQWa3yqd1VhyE2O97iqoTYZeKvOIdZbDFKp0E",
-      gradient: "from-orange-900 to-yellow-900"
-    }
-  ];
+  const [spendingData, setSpendingData] = useState<SpendingData | null>(null);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const currentStoryData = stories[currentStory];
 
+  // Generate AI description using Groq
+  const generateAIDescription = async (title: string, category: string, amount: string, context: string): Promise<string> => {
+    try {
+      const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
+      if (!groqApiKey) {
+        return context; // Fallback to provided context
+      }
+
+      const systemPrompt = `You are a witty, friendly financial advisor creating personalized spending insights. 
+      Generate short, engaging descriptions (under 20 words) that are:
+      - Playful but not judgmental
+      - Specific to the spending data
+      - Encouraging and fun
+      - Instagram story style
+      Examples: "Holiday shopping got the best of you!", "You really love your gadgets!", "Prime delivery was your best friend!"`;
+
+      const userPrompt = `Generate a fun description for: ${title} - ${category} - ${amount}. 
+      Context: ${context}. 
+      Make it personal and engaging like a social media post.`;
+
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-70b-versatile',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          max_tokens: 30,
+          temperature: 0.8,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Groq API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.choices[0]?.message?.content?.trim() || context;
+    } catch (error) {
+      console.error('Error generating AI description:', error);
+      return context; // Fallback to provided context
+    }
+  };
+
+  // Fetch spending data on component mount
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await SpendingAPI.getSpendingData();
+        setSpendingData(data);
+        const generatedStories = await generateStoriesFromData(data);
+        setStories(generatedStories);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error fetching spending data:', error);
+        // Fallback to sample data
+        const fallbackStories = generateFallbackStories();
+        setStories(fallbackStories);
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Generate stories from API data
+  const generateStoriesFromData = async (data: SpendingData): Promise<Story[]> => {
+    const stories: Story[] = [];
+    const gradients = [
+      "linear-gradient(135deg, #7f1d1d, #991b1b)", // red-900 to red-700
+      "linear-gradient(135deg, #1e3a8a, #1d4ed8)", // blue-900 to blue-700
+      "linear-gradient(135deg, #14532d, #15803d)", // green-900 to green-700
+      "linear-gradient(135deg, #581c87, #7c3aed)", // purple-900 to purple-700
+      "linear-gradient(135deg, #9a3412, #ea580c)", // orange-900 to orange-700
+      "linear-gradient(135deg, #134e4a, #0f766e)", // teal-900 to teal-700
+      "linear-gradient(135deg, #831843, #be185d)", // pink-900 to pink-700
+      "linear-gradient(135deg, #312e81, #4338ca)", // indigo-900 to indigo-700
+      "linear-gradient(135deg, #713f12, #ca8a04)", // yellow-900 to yellow-700
+      "linear-gradient(135deg, #164e63, #0891b2)", // cyan-900 to cyan-700
+      "linear-gradient(135deg, #064e3b, #047857)", // emerald-900 to emerald-700
+      "linear-gradient(135deg, #4c1d95, #6d28d9)"  // violet-900 to violet-700
+    ];
+    
+    let storyId = 1;
+    let gradientIndex = 0;
+
+    // Story 1: Total Spending
+    const totalDescription = await generateAIDescription(
+      "Total Year Spending",
+      "2024",
+      SpendingAPI.formatCurrency(data.totalSpent),
+      `${data.totalTransactions} transactions this year!`
+    );
+    stories.push({
+      id: storyId++,
+      title: "Total Year Spending",
+      category: "2024",
+      amount: SpendingAPI.formatCurrency(data.totalSpent),
+      description: totalDescription,
+      backgroundImage: "",
+      gradient: gradients[gradientIndex++ % gradients.length]
+    });
+
+    // Story 2: Top Category
+    if (data.topCategories.length > 0) {
+      const topCategory = data.topCategories[0];
+      const categoryDescription = await generateAIDescription(
+        "Top Spending Category",
+        topCategory.category,
+        SpendingAPI.formatCurrency(topCategory.totalSpent),
+        `${topCategory.itemCount} items purchased!`
+      );
+      stories.push({
+        id: storyId++,
+        title: "Top Spending Category",
+        category: topCategory.category,
+        amount: SpendingAPI.formatCurrency(topCategory.totalSpent),
+        description: categoryDescription,
+        backgroundImage: "",
+        gradient: gradients[gradientIndex++ % gradients.length]
+      });
+    }
+
+    // Story 3: Top Merchant
+    if (data.merchantSummaries.length > 0) {
+      const topMerchant = data.merchantSummaries[0];
+      const merchantDescription = await generateAIDescription(
+        "Favorite Store",
+        topMerchant.merchantName,
+        SpendingAPI.formatCurrency(topMerchant.totalSpent),
+        `${topMerchant.transactionCount} visits this year!`
+      );
+      stories.push({
+        id: storyId++,
+        title: "Favorite Store",
+        category: topMerchant.merchantName,
+        amount: SpendingAPI.formatCurrency(topMerchant.totalSpent),
+        description: merchantDescription,
+        backgroundImage: "",
+        gradient: gradients[gradientIndex++ % gradients.length]
+      });
+    }
+
+    // Story 4: Average Order Value
+    const avgDescription = await generateAIDescription(
+      "Average Order Value",
+      "Per Transaction",
+      SpendingAPI.formatCurrency(data.averageOrderValue),
+      "Your typical spending per purchase"
+    );
+    stories.push({
+      id: storyId++,
+      title: "Average Order Value",
+      category: "Per Transaction",
+      amount: SpendingAPI.formatCurrency(data.averageOrderValue),
+      description: avgDescription,
+      backgroundImage: "",
+      gradient: gradients[gradientIndex++ % gradients.length]
+    });
+
+
+    // Story 6: Top Product (if available)
+    if (data.topCategories.length > 0 && data.topCategories[0].topProducts.length > 0) {
+      const topProduct = data.topCategories[0].topProducts[0];
+      const productDescription = await generateAIDescription(
+        "Biggest Purchase",
+        topProduct.name,
+        SpendingAPI.formatCurrency(topProduct.totalSpent),
+        "Your most expensive single item!"
+      );
+      stories.push({
+        id: storyId++,
+        title: "Biggest Purchase",
+        category: topProduct.name,
+        amount: SpendingAPI.formatCurrency(topProduct.totalSpent),
+        description: productDescription,
+        backgroundImage: "",
+        gradient: gradients[gradientIndex++ % gradients.length]
+      });
+    }
+
+    // Story 7: Payment Method
+    if (data.paymentMethodSummary.length > 0) {
+      const topPaymentMethod = data.paymentMethodSummary[0];
+      const paymentDescription = await generateAIDescription(
+        "Preferred Payment",
+        `${topPaymentMethod.brand} •••• ${topPaymentMethod.lastFour}`,
+        SpendingAPI.formatCurrency(topPaymentMethod.totalSpent),
+        `${topPaymentMethod.transactionCount} transactions`
+      );
+      stories.push({
+        id: storyId++,
+        title: "Preferred Payment",
+        category: `${topPaymentMethod.brand} •••• ${topPaymentMethod.lastFour}`,
+        amount: SpendingAPI.formatCurrency(topPaymentMethod.totalSpent),
+        description: paymentDescription,
+        backgroundImage: "",
+        gradient: gradients[gradientIndex++ % gradients.length]
+      });
+    }
+
+
+
+
+    return stories;
+  };
+
+  // Fallback stories if API fails
+  const generateFallbackStories = (): Story[] => {
+    const gradients = [
+      "linear-gradient(135deg, #7f1d1d, #991b1b)", // red-900 to red-700
+      "linear-gradient(135deg, #1e3a8a, #1d4ed8)", // blue-900 to blue-700
+      "linear-gradient(135deg, #14532d, #15803d)", // green-900 to green-700
+      "linear-gradient(135deg, #581c87, #7c3aed)", // purple-900 to purple-700
+      "linear-gradient(135deg, #9a3412, #ea580c)", // orange-900 to orange-700
+      "linear-gradient(135deg, #134e4a, #0f766e)", // teal-900 to teal-700
+      "linear-gradient(135deg, #831843, #be185d)", // pink-900 to pink-700
+      "linear-gradient(135deg, #312e81, #4338ca)", // indigo-900 to indigo-700
+      "linear-gradient(135deg, #713f12, #ca8a04)", // yellow-900 to yellow-700
+      "linear-gradient(135deg, #164e63, #0891b2)", // cyan-900 to cyan-700
+      "linear-gradient(135deg, #064e3b, #047857)", // emerald-900 to emerald-700
+      "linear-gradient(135deg, #4c1d95, #6d28d9)"  // violet-900 to violet-700
+    ];
+
+    return [
+      {
+        id: 1,
+        title: "Total Year Spending",
+        category: "2024",
+        amount: "$12,450.78",
+        description: "1,260 transactions this year!",
+        backgroundImage: "",
+        gradient: gradients[0]
+      },
+      {
+        id: 2,
+        title: "Top Spending Category",
+        category: "Electronics",
+        amount: "$4,250.32",
+        description: "You love your gadgets!",
+        backgroundImage: "",
+        gradient: gradients[1]
+      },
+      {
+        id: 3,
+        title: "Favorite Store",
+        category: "Amazon",
+        amount: "$3,890.45",
+        description: "285 visits this year!",
+        backgroundImage: "",
+        gradient: gradients[2]
+      },
+      {
+        id: 4,
+        title: "Average Order Value",
+        category: "Per Transaction",
+        amount: "$449.46",
+        description: "Your typical spending per purchase",
+        backgroundImage: "",
+        gradient: gradients[3]
+      },
+      {
+        id: 5,
+        title: "Biggest Purchase",
+        category: "iPhone 15 Pro",
+        amount: "$1,299.99",
+        description: "Your most expensive single item!",
+        backgroundImage: "",
+        gradient: gradients[4]
+      },
+      {
+        id: 6,
+        title: "Preferred Payment",
+        category: "VISA •••• 4404",
+        amount: "$8,450.32",
+        description: "456 transactions",
+        backgroundImage: "",
+        gradient: gradients[5]
+      }
+    ];
+  };
+
+  useEffect(() => {
+    if (isLoading || stories.length === 0) return;
+
     // Reset progress when story changes
     setProgress(0);
     
@@ -90,7 +344,7 @@ export default function SpendingStory({ onComplete }: StoryProps) {
       clearInterval(progressInterval);
       clearTimeout(storyTimeout);
     };
-  }, [currentStory, onComplete]);
+  }, [currentStory, stories.length, isLoading, onComplete]);
 
   const handleNext = () => {
     if (currentStory < stories.length - 1) {
@@ -171,6 +425,36 @@ export default function SpendingStory({ onComplete }: StoryProps) {
     }
   };
 
+  // Show loading state while fetching data
+  if (isLoading) {
+    return (
+      <div className="relative w-screen h-screen bg-gradient-to-br from-indigo-900 to-purple-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-lg">Loading your spending story...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if no stories available
+  if (stories.length === 0) {
+    return (
+      <div className="relative w-screen h-screen bg-gradient-to-br from-red-900 to-pink-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <span className="material-symbols-outlined text-6xl mb-4">error</span>
+          <p className="text-lg">Unable to load spending data</p>
+          <button 
+            onClick={onComplete}
+            className="mt-4 bg-white/20 px-6 py-2 rounded-full hover:bg-white/30 transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       className="relative w-screen h-screen bg-gradient-to-br shadow-2xl overflow-hidden group/design-root"
@@ -218,29 +502,29 @@ export default function SpendingStory({ onComplete }: StoryProps) {
         </button>
       </div>
 
-      {/* Background Image */}
+      {/* Background with gradient */}
       <div 
-        className="absolute inset-0 w-full h-full bg-cover bg-center"
-        style={{
-          backgroundImage: `url("${currentStoryData.backgroundImage}")`
+        className="absolute inset-0 w-full h-full"
+        style={{ 
+          background: currentStoryData.gradient
         }}
       >
-        <div className="absolute inset-0 bg-black/50"></div>
+        <div className="absolute inset-0 bg-black/30"></div>
       </div>
 
       {/* Content */}
       <div className="absolute inset-0 flex flex-col justify-between p-6 z-10 text-white">
         <div className="flex-1 flex flex-col items-center justify-center text-center -mt-8">
-          <span className="text-lg font-medium text-purple-300">
+          <span className="text-lg font-medium text-white/80">
             {currentStoryData.title}
           </span>
           <h1 className="text-7xl font-black tracking-tighter my-2 text-white">
             {currentStoryData.category}
           </h1>
-          <p className="text-2xl font-bold text-gray-200">
+          <p className="text-2xl font-bold text-white/90">
             {currentStoryData.amount}
           </p>
-          <p className="text-sm text-gray-400 mt-2 max-w-xs">
+          <p className="text-sm text-white/70 mt-2 max-w-xs">
             {currentStoryData.description}
           </p>
         </div>
