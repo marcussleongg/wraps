@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Noto_Sans, Spline_Sans } from "next/font/google";
 import "./globals.css";
 
+// Initialize AI categorization on server startup
+import "@/lib/startup";
+
 const notoSans = Noto_Sans({
   variable: "--font-noto-sans",
   subsets: ["latin"],

@@ -10,9 +10,9 @@ import {
 } from '@/types/spending';
 import { MerchantData } from './dataLoader';
 import { categorizeUncategorizedProducts } from './aiCategorizer';
+import { globalCategorizationCache } from './globalCache';
 
 export class SpendingSummarizer {
-  private aiCategorizationCache: Map<string, string> = new Map();
   private useAIFallback: boolean;
   private apiKey?: string;
 
@@ -52,10 +52,16 @@ export class SpendingSummarizer {
     const monthlyMap = new Map<string, { totalSpent: number; count: number }>();
 
     transactions.forEach(transaction => {
-      // Process payment methods
+      // Process payment methods (skip unknown brands)
       transaction.paymentMethods.forEach(payment => {
-        const brand = payment.brand || 'Unknown';
-        const lastFour = payment.lastFour || 'Unknown';
+        const brand = payment.brand;
+        const lastFour = payment.lastFour;
+        
+        // Skip payments with unknown/missing brand or lastFour
+        if (!brand || brand === 'Unknown' || !lastFour || lastFour === 'Unknown') {
+          return;
+        }
+        
         const key = `${brand}-${lastFour}`;
         const amount = parseFloat(payment.transactionAmount) || 0;
         const existing = paymentMap.get(key) || { totalSpent: 0, count: 0, lastFour };
@@ -160,7 +166,7 @@ export class SpendingSummarizer {
 
     // Convert payment map to PaymentMethodBreakdown
     const paymentMethodBreakdown: PaymentMethodBreakdown[] = Array.from(paymentMap.entries()).map(([key, data]) => {
-      const brand = key.split('-')[0] || 'Unknown';
+      const brand = key.split('-')[0];
       return {
         brand,
         totalSpent: data.totalSpent,
@@ -189,12 +195,12 @@ export class SpendingSummarizer {
   }
 
   /**
-   * Get category from cache or keyword-based categorization
+   * Get category from global cache or keyword-based categorization
    */
   private getCategoryForProduct(productName: string): string {
-    // Check cache first
-    if (this.aiCategorizationCache.has(productName)) {
-      return this.aiCategorizationCache.get(productName)!;
+    // Check global cache first
+    if (globalCategorizationCache.has(productName)) {
+      return globalCategorizationCache.get(productName)!;
     }
 
     // Use keyword-based categorization
@@ -243,10 +249,8 @@ export class SpendingSummarizer {
       
       const aiResults = await categorizeUncategorizedProducts(otherProducts, this.apiKey);
       
-      // Cache the results
-      for (const [productName, category] of Object.entries(aiResults)) {
-        this.aiCategorizationCache.set(productName, category);
-      }
+      // Cache the results in global cache
+      globalCategorizationCache.setMultiple(aiResults);
       
       console.log(`✅ Claude categorized ${Object.keys(aiResults).length} products`);
     } catch (error) {
@@ -258,23 +262,33 @@ export class SpendingSummarizer {
    * Create comprehensive spending summary from all merchant data
    */
   public async summarizeSpending(merchantDataArray: MerchantData[]): Promise<SpendingSummary> {
-    // First pass: collect products that would be categorized as "Other"
-    const otherProducts = new Set<string>();
+    // First pass: collect products that would be categorized as "Other" and aren't cached
+    const uncachedOtherProducts = new Set<string>();
     
     if (this.useAIFallback && this.apiKey) {
       for (const merchantData of merchantDataArray) {
         for (const transaction of merchantData.transactions) {
           for (const product of transaction.products) {
+            // Skip if already in global cache
+            if (globalCategorizationCache.has(product.name)) {
+              continue;
+            }
+            
             const keywordCategory = this.categorizeProductKeywords(product.name);
             if (keywordCategory === 'Other') {
-              otherProducts.add(product.name);
+              uncachedOtherProducts.add(product.name);
             }
           }
         }
       }
 
-      // AI categorization for "Other" products
-      await this.processOtherProducts(Array.from(otherProducts));
+      // AI categorization for uncached "Other" products only
+      if (uncachedOtherProducts.size > 0) {
+        console.log(`🔄 Found ${uncachedOtherProducts.size} uncached "Other" products`);
+        await this.processOtherProducts(Array.from(uncachedOtherProducts));
+      } else {
+        console.log(`✅ All products already cached, skipping AI categorization`);
+      }
     }
 
     // Second pass: generate summaries with AI-enhanced categorization

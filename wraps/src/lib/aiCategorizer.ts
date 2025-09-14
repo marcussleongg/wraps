@@ -33,7 +33,7 @@ export class AICategorizer {
   constructor(config: AICategorizerConfig) {
     this.config = {
       ...config,
-      model: config.model || 'claude-3-5-sonnet-20241022'
+      model: config.model || 'claude-sonnet-4-20250514'
     };
   }
 
@@ -251,7 +251,7 @@ export const defaultConfig: AICategorizerConfig = {
   apiKey: process.env.ANTHROPIC_API_KEY || '',
   batchSize: 50,
   maxRetries: 3,
-  model: 'claude-3-5-sonnet-20241022'
+  model: 'claude-sonnet-4-20250514'
 };
 
 /**
@@ -260,7 +260,7 @@ export const defaultConfig: AICategorizerConfig = {
 export async function categorizeUncategorizedProducts(
   productNames: string[],
   apiKey: string,
-  model: string = 'claude-3-5-sonnet-20241022'
+  model: string = 'claude-sonnet-4-20250514'
 ): Promise<CategoryMapping> {
   const config: AICategorizerConfig = {
     apiKey,
