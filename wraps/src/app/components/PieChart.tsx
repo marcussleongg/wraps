@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SpendingAPI, PieChartData, PieChartResponse, SpendingData } from '../services/api';
+import { SpendingAPI, PieChartData, SpendingData } from '../services/api';
 
 interface PieChartProps {
   onClose: () => void;
@@ -13,70 +13,49 @@ export default function PieChart({ onClose, spendingData }: PieChartProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Generate pie chart data from spending data (fallback)
-  const generatePieDataFromSpending = (data: SpendingData): PieChartData[] => {
-    const categories = data.topCategories;
-    const topCategories = categories.slice(0, 6); // Top 6 categories
-    const otherCategories = categories.slice(6);
-    
-    const otherTotal = otherCategories.reduce((sum, cat) => sum + cat.totalSpent, 0);
-    const otherItemCount = otherCategories.reduce((sum, cat) => sum + cat.itemCount, 0);
-    
-    const pieData = topCategories.map(category => ({
-      name: category.category,
-      value: Math.round(category.totalSpent * 100) / 100,
-      percentage: Math.round((category.totalSpent / data.totalSpent) * 100 * 100) / 100,
-      itemCount: category.itemCount,
-      averagePrice: Math.round(category.averagePrice * 100) / 100,
-      color: getCategoryColor(category.category)
-    }));
-
-    // Add "Other" slice if there are remaining categories
-    if (otherTotal > 0) {
-      pieData.push({
-        name: "Other",
-        value: Math.round(otherTotal * 100) / 100,
-        percentage: Math.round((otherTotal / data.totalSpent) * 100 * 100) / 100,
-        itemCount: otherItemCount,
-        averagePrice: otherItemCount > 0 ? Math.round((otherTotal / otherItemCount) * 100) / 100 : 0,
-        color: '#6b7280' // Gray for "Other" (matching API documentation)
-      });
-    }
-
-    return pieData;
-  };
-
-  // Helper function to get predefined category colors
-  const getCategoryColor = (category: string): string => {
-    const categoryColors: { [key: string]: string } = {
-      'Electronics': '#3b82f6',      // Blue
-      'Food & Beverages': '#10b981', // Green
-      'Health & Beauty': '#ec4899',  // Pink
-      'Household': '#f59e0b',        // Amber
-      'Clothing': '#8b5cf6',         // Purple
-      'Home & Garden': '#84cc16',    // Lime
-      'Sports & Outdoors': '#06b6d4', // Cyan
-      'Books & Media': '#6366f1',    // Indigo
-      'Baby & Kids': '#f97316',      // Orange
-      'Pet Supplies': '#14b8a6',     // Teal
-      'Other': '#6b7280'             // Gray
-    };
-    
-    return categoryColors[category] || '#9ca3af'; // Default gray
-  };
 
   useEffect(() => {
     const fetchPieData = async () => {
       try {
-        // Try to fetch from API first
+        // Fetch from API - this may take time due to Anthropic processing
+        console.log('=== PIE CHART API CALL START ===');
+        console.log('Fetching pie chart data from API...');
+        console.log('Current URL:', window.location.href);
+        
+        const startTime = Date.now();
         const apiData = await SpendingAPI.getPieChartData(6); // Top 6 categories
-        setPieData(apiData.data);
-        setIsLoading(false);
+        const endTime = Date.now();
+        
+        console.log(`API call took ${endTime - startTime}ms`);
+        console.log('Pie chart data received:', apiData);
+        console.log('Pie chart data.data:', apiData.data);
+        console.log('Pie chart data length:', apiData.data?.length);
+        
+        if (apiData && apiData.data && apiData.data.length > 0) {
+          // Normalize percentages to ensure they add up to 100%
+          const totalPercentage = apiData.data.reduce((sum, item) => sum + item.percentage, 0);
+          const normalizedData = apiData.data.map(item => ({
+            ...item,
+            percentage: Math.round((item.percentage / totalPercentage) * 100 * 100) / 100
+          }));
+          
+          console.log('Original total percentage:', totalPercentage);
+          console.log('Normalized data:', normalizedData);
+          console.log('=== USING API DATA ===');
+          
+          setPieData(normalizedData);
+          setIsLoading(false);
+        } else {
+          console.error('No data received from API');
+          setError('No data received from API');
+          setIsLoading(false);
+        }
       } catch (err) {
-        console.error('Error fetching pie chart data from API, using fallback:', err);
-        // Fallback to generating from spending data
-        const fallbackData = generatePieDataFromSpending(spendingData);
-        setPieData(fallbackData);
+        console.error('=== API CALL FAILED ===');
+        console.error('Error fetching pie chart data from API:', err);
+        console.error('Error details:', err);
+        console.error('Error stack:', err.stack);
+        setError(`Failed to load chart data: ${err.message || 'Unknown error'}`);
         setIsLoading(false);
       }
     };
@@ -89,7 +68,26 @@ export default function PieChart({ onClose, spendingData }: PieChartProps) {
       <div className="relative w-screen h-screen bg-gradient-to-br from-indigo-900 to-purple-900 flex items-center justify-center">
         <div className="text-center text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p>Loading your spending breakdown...</p>
+          <p className="text-lg mb-2">Loading your spending breakdown...</p>
+          <p className="text-sm text-white/70">Processing categories with AI - this may take a moment</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="relative w-screen h-screen bg-gradient-to-br from-red-900 to-red-700 flex items-center justify-center">
+        <div className="text-center text-white">
+          <span className="material-symbols-outlined text-6xl mb-4">error</span>
+          <h2 className="text-2xl font-bold mb-2">Oops!</h2>
+          <p className="text-lg mb-4">{error}</p>
+          <button
+            onClick={onClose}
+            className="bg-white/20 backdrop-blur-md text-white font-bold py-2 px-4 rounded-full hover:bg-white/30 transition-colors"
+          >
+            Go Back
+          </button>
         </div>
       </div>
     );
@@ -115,7 +113,6 @@ export default function PieChart({ onClose, spendingData }: PieChartProps) {
   }
 
   const renderPieChart = () => {
-
     let cumulativePercentage = 0;
     const radius = 120;
     const centerX = 150;
@@ -134,6 +131,7 @@ export default function PieChart({ onClose, spendingData }: PieChartProps) {
           
           const largeArcFlag = segment.percentage > 50 ? 1 : 0;
           
+          // Create proper pie slice path
           const pathData = [
             `M ${centerX} ${centerY}`,
             `L ${x1} ${y1}`,
@@ -212,6 +210,9 @@ export default function PieChart({ onClose, spendingData }: PieChartProps) {
           <p className="text-white/70">Total Spent</p>
           <p className="text-2xl font-bold">
             {SpendingAPI.formatCurrency(pieData.reduce((sum, segment) => sum + segment.value, 0))}
+          </p>
+          <p className="text-sm text-white/50 mt-1">
+            Total: {pieData.reduce((sum, segment) => sum + segment.percentage, 0).toFixed(1)}%
           </p>
         </div>
       </div>

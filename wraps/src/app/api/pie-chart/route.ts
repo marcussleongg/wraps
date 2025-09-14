@@ -34,8 +34,13 @@ export async function GET(request: Request) {
 
     // Pie chart for category spending
     const categories = summary.topCategories;
-    const topCategories = categories.slice(0, topN);
-    const otherCategories = categories.slice(topN);
+    
+    // Filter out any existing "Other" category to avoid duplicates
+    const nonOtherCategories = categories.filter(cat => cat.category !== "Other");
+    const existingOther = categories.find(cat => cat.category === "Other");
+    
+    const topCategories = nonOtherCategories.slice(0, topN);
+    const otherCategories = nonOtherCategories.slice(topN);
     
     const otherTotal = otherCategories.reduce((sum, cat) => sum + cat.totalSpent, 0);
     const otherItemCount = otherCategories.reduce((sum, cat) => sum + cat.itemCount, 0);
@@ -49,15 +54,18 @@ export async function GET(request: Request) {
       color: getCategoryColor(category.category)
     }));
 
-    // Add "Other" slice if there are remaining categories
-    if (otherTotal > 0) {
+    // Add "Other" slice if there are remaining categories OR if there was an existing "Other" category
+    const totalOtherValue = otherTotal + (existingOther ? existingOther.totalSpent : 0);
+    const totalOtherItems = otherItemCount + (existingOther ? existingOther.itemCount : 0);
+    
+    if (totalOtherValue > 0) {
       pieData.push({
-        name: `Other Categories (${otherCategories.length})`,
-        value: Math.round(otherTotal * 100) / 100,
-        percentage: Math.round((otherTotal / summary.totalSpent) * 100 * 100) / 100,
-        itemCount: otherItemCount,
-        averagePrice: otherItemCount > 0 ? Math.round((otherTotal / otherItemCount) * 100) / 100 : 0,
-        color: '#94a3b8' // Gray for "Other"
+        name: "Other",
+        value: Math.round(totalOtherValue * 100) / 100,
+        percentage: Math.round((totalOtherValue / summary.totalSpent) * 100 * 100) / 100,
+        itemCount: totalOtherItems,
+        averagePrice: totalOtherItems > 0 ? Math.round((totalOtherValue / totalOtherItems) * 100) / 100 : 0,
+        color: '#6b7280' // Gray for "Other" (matching API documentation)
       });
     }
 

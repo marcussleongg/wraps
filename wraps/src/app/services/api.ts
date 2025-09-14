@@ -117,14 +117,37 @@ export class SpendingAPI {
       if (merchantId) params.append('merchantId', merchantId.toString());
       
       const url = `${API_BASE_URL}/api/pie-chart${params.toString() ? '?' + params.toString() : ''}`;
-      const response = await fetch(url);
+      console.log('API Service - Making request to:', url);
+      console.log('API Service - API_BASE_URL:', API_BASE_URL);
+      
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 1 minute timeout
+      
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      console.log('API Service - Response status:', response.status);
+      console.log('API Service - Response ok:', response.ok);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('API Service - Error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
-      return await response.json();
+      
+      const data = await response.json();
+      console.log('API Service - Response data:', data);
+      return data;
     } catch (error) {
-      console.error('Error fetching pie chart data:', error);
+      console.error('API Service - Error fetching pie chart data:', error);
       throw error;
     }
   }
